@@ -17,7 +17,6 @@ import numpy
 
 import chaospy.quad
 
-
 def pdf(dist, x, G, eps=1.e-7, verbose=False,
         retall=False):
     """

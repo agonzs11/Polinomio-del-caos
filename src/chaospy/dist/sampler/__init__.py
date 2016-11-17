@@ -12,12 +12,11 @@ Generating random samples can be done from the distribution instance
 method ``sample`` as discussed in the :ref:`tutorial`.
 For example, to generate nodes from the Korobov latice::
 
-   >>> distribution = pc.Iid(pc.Beta(2, 2), 2)
+   >>> distribution = chaospy.Iid(chaospy.Beta(2, 2), 2)
    >>> samples = distribution.sample(4, rule="K")
    >>> print(nodes)
    [[ 0.28714073  0.43293108  0.56706892  0.71285927]
     [ 0.43293108  0.71285927  0.28714073  0.56706892]]
-
 
 At the core of `chaospy`, all samples are generated to the unit hyper-cube
 through the function :func:`~chaospy.dist.samplegen`. These samples are then
@@ -25,16 +24,7 @@ mapped using a :ref:`rosenblatt` to map the values on the domain respective to
 the distribution in question. This way, all variance reduction techniques are
 supported by all distributions.
 """
-
-import numpy as np
-
 from .generator import samplegen
 from .samplers import *
 from .sobol_lib import sobol
 from .antithetic import antithetic_gen
-
-
-if __name__=="__main__":
-    import __init__ as cp
-    import doctest
-    doctest.testmod()

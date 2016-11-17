@@ -1,33 +1,9 @@
-r"""
-Constructing an transitional operator requires to construct the
-distributions different from a stand-alone variable. To illustrate how
-to construct these types of variables, consider the following example.
-Let :math:`Q=A+B`, where one of :math:`A` and :math:`B` is a random
-variable, and the other a scalar. Which variable is what dependents on
-the user setup of the variable. Assuming that :math:`A` is the random
-variable, we have that
-
-.. math::
-
-    F_{Q\mid B}(q\mid b) = \mathbb P {q\leq Q\mid B\!=\!b} =
-    \mathbb P {q\leq AB\mid B\!=\!b}
-
-    = \mathbb P {\tfrac qb\leq A\mid B\!=\!b} =
-    F_{A\mid B}(\tfrac qb\mid b).
-
-Because of symmetry the distribution will be the same, but with
-:math:`A` and :math:`B` substituted.
-
-This is required when trying to use operators on multivariate variables. To
-create such a variable with ``construct`` provide an additional ``length``
-keyword argument specifying the length of a distribution.
-"""
-
 import numpy as np
 
 import networkx as nx
-from .approx import pdf, ppf, mom
 
+import chaospy.dist.approx
+import chaospy.dist.graph
 
 class Graph():
     """
@@ -124,7 +100,6 @@ class Graph():
         graph.add_node(dist)
 
         while L:
-
             d = L.pop()
             for key,val in d.prm.items():
 
@@ -145,9 +120,9 @@ class Graph():
         self.L = nx.topological_sort(graph)
         self.root = self.dist = dist
 
-        self.dists = Dists(self)
-        self.keys = Keys(self)
-        self.values = Values(self)
+        self.dists = chaospy.dist.graph.container.Dists(self)
+        self.keys = chaospy.dist.graph.container.Keys(self)
+        self.values = chaospy.dist.graph.container.Values(self)
 
         self._call = None
 
@@ -257,19 +232,19 @@ class Graph():
         else:
             raise ValueError("unknown mode")
 
-        if mode!="val":
+        if mode != "val":
             self.dist = self.root
 
-        if mode in ("rnd","dep"):
+        if mode in ("rnd", "dep"):
             out = self(self.root)
 
-        elif mode=="val":
+        elif mode == "val":
             out = self(x)
         else:
             out = self(x, self.root)
 
-        if mode=="ttr":
-            out[1]**(x!=0)
+        if mode == "ttr":
+            out[1]**(x != 0)
 
         self.size = size
         if mode=="val":
@@ -291,35 +266,7 @@ class Graph():
 
     def fwd_call(self, x, dist):
         "forward call backend wrapper"
-
-        self.counting(dist, "fwd")
-        assert x.shape==(len(dist), self.size)
-        self.dist, dist_ = dist, self.dist
-
-        graph = self.graph
-        graph.add_node(dist, key=x)
-        out = np.empty(x.shape)
-
-        prm = self.dists.build()
-        prm.update(self.keys.build())
-        for k,v in prm.items():
-            if not isinstance(v, np.ndarray):
-                v_ = self.run(v, "val")[0]
-                if isinstance(v_, np.ndarray):
-                    prm[k] = v_
-                    graph.add_node(v, key=v_)
-
-        if dist.advance:
-            out[:] = dist._cdf(x, self)
-        else:
-#              prm = self.dists.build()
-#              prm.update(self.keys.build())
-            out[:] = dist._cdf(x, **prm)
-
-        graph.add_node(dist, val=out)
-
-        self.dist = dist_
-        return np.array(out)
+        return chaospy.dist.graph.forward_call(self, x, dist)
 
     def pdf_call(self, x, dist):
         "PDF call backend wrapper"
@@ -349,7 +296,7 @@ class Graph():
 #                  prm.update(self.keys.build())
                 out[:] = dist._pdf(x, **prm)
         else:
-            out = pdf(dist, x, self, **self.meta)
+            out = chaospy.dist.approx.pdf(dist, x, self, **self.meta)
         graph.add_node(dist, val=out)
 
         self.dist = dist_
@@ -358,7 +305,6 @@ class Graph():
     def fwd_as_pdf(self, x, dist):
         """During a PDF-call, a switch to CDF might be necesarry.
         This functions initiates this switch."""
-
         graph_source = self.graph_source
         graph = nx.DiGraph()
         for node in graph_source.nodes():
@@ -377,7 +323,6 @@ class Graph():
 
     def inv_call(self, q, dist):
         "inverse call backend wrapper"
-
         self.counting(dist, "inv")
         assert q.shape==(len(dist), self.size)
         self.dist, dist_ = dist, self.dist
@@ -401,8 +346,8 @@ class Graph():
             else:
                 out[:] = dist._ppf(q, **prm)
         else:
-            out,N,q_ = ppf(dist, q, self,
-                    retall=1, **self.meta)
+            out,N,q_ = chaospy.dist.approx.ppf(
+                dist, q, self, retall=1, **self.meta)
         graph.add_node(dist, key=out)
 
         self.dist = dist_
@@ -480,7 +425,7 @@ class Graph():
                 prm.update(self.keys.build())
                 out[:] = dist._mom(k, **prm)
         else:
-            out = mom(dist, k, **self.meta)
+            out = chaospy.dist.approx.mom(dist, k, **self.meta)
         graph.add_node(dist, val=out)
 
         self.dist = dist_
@@ -488,7 +433,6 @@ class Graph():
 
     def rnd_call(self, dist):
         "Sample generator call backend wrapper"
-
         self.counting(dist, "rnd")
         graph = self.graph
         self.dist, dist_ = dist, self.dist
@@ -567,111 +511,3 @@ class Graph():
 Set of node dependencies
         """
         return set(self.graph.nodes())
-
-
-class Container(object):
-    """
-    Graph interactive wrapper.
-
-    Used to retrieve parameters in a distribution. Comes in three flavoers::
-
-        Dist Keys Values
-
-    Can be interacted with as follows:
-
-    Retrieve parameter::
-
-        container["param"]
-
-    Check of paramater is in collection::
-
-        "param" in container
-
-    Itterate over all parameters::
-
-        for (key,param) in container
-
-    Generate dictionary with all values::
-
-        container.build()
-
-    Identify the number of parameters available::
-
-        len(container)
-    """
-
-    def __init__(self, graph):
-        "Graph module"
-        self.graph = graph
-    def __contains__(self, key):
-        raise NotImplementedError()
-    def getitem(self, key):
-        raise NotImplementedError()
-    def __getitem__(self, key):
-        return self.getitem(key)
-    def build(self):
-        "build a dict with all parameters"
-        out = {}
-        for k,v in self.graph.dist.prm.items():
-            if k in self:
-                out[k] = self[k]
-        return out
-    def __iter__(self):
-        return self.build().values().__iter__()
-    def __str__(self):
-        return str(self.build())
-    def __len__(self):
-        return len(self.build())
-
-class Dists(Container):
-    """Contains all distributions."""
-
-    def __contains__(self, key):
-        return not isinstance(self.graph.dist.prm[key], np.ndarray)
-
-    def getitem(self, key):
-        if not key in self:
-            raise KeyError()
-        return self.graph.dist.prm[key]
-
-class Keys(Container):
-    """
-    Contains all values.
-
-    Either as constants or as substitutes of distributions.
-    """
-
-    def __contains__(self, key):
-
-        out = False
-        val = self.graph.dist.prm[key]
-        if isinstance(val, np.ndarray) or \
-                "key" in self.graph.graph.node[val]:
-            out = True
-
-        return out
-
-    def getitem(self, key):
-
-        if not key in self:
-            raise KeyError()
-        val = self.graph.dist.prm[key]
-
-        if isinstance(val, np.ndarray):
-            return val
-
-        gkey = self.graph.dist.prm[key]
-        return self.graph.graph.node[gkey]["key"]
-
-class Values(Container):
-    """Contains all evaluations of distributions."""
-
-    def __contains__(self, key):
-        out = self.graph.dist.prm[key]
-        return  not isinstance(out, np.ndarray) and \
-                "val" in self.graph.graph.node[out]
-
-    def getitem(self, key):
-        if not key in self:
-            raise KeyError()
-        return self.graph.graph.node[self.graph.dist.prm[key]]["val"]

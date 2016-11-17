@@ -20,7 +20,6 @@ equation , ``bnd`` is a function returning the lower and upper bounds, and
 ``a`` and ``b`` are distribution parameters.  They take either other
 components, or as illustrated: constants.
 
-
 In addition to ``cdf`` and ``bnd`` there are a few optional arguments. For
 example a fully featured uniform random variable is defined as follows::
 
@@ -56,7 +55,6 @@ Equivalently constructing the same distribution using subclass:
     >>> dist = Uniform(-3, 3)
     >>> print(dist.fwd([-3, 0, 3])) # Forward Rosenblatt transformation
     [ 0.   0.5  1. ]
-
 """
 import types
 import numpy as np
@@ -457,11 +455,12 @@ independent variables""")
             str (callable, str) : Pretty print of module.
             dep (callable) : Dependency structure (if non-trivial).
         """
-        for key,val in kws.items():
-            if key=="str" and isinstance(val, str):
-                val_ = val
-                val = lambda *a,**k: val_
-            setattr(self, "_"+key, types.MethodType(val, self))
+        for key, val in kws.items():
+            if key == "str" and isinstance(val, str):
+                val_ = lambda *a,**k: val
+            else:
+                val_ = lambda self, *a, **k: val(*a, **k)
+            setattr(self, "_"+key, types.MethodType(val_, self))
 
 
     def dependent(self, *args):
@@ -499,105 +498,3 @@ independent variables""")
         as_joined = len(as_joined)
 
         return as_seperated != as_joined
-
-
-def construct(cdf, bnd, parent=None, pdf=None, ppf=None, mom=None, ttr=None,
-              val=None, doc=None, str=None, dep=None, defaults=None,
-              advance=False, length=1):
-    """
-    Random variable constructor.
-
-    Args:
-        cdf (callable) : Cumulative distribution function. Optional if parent
-                is used.
-        bnd (callable) : Boundary interval. Optional if parent is used.
-        parent (Dist) : Distribution used as basis for new distribution. Any
-                other argument that is omitted will instead take is function
-                from parent.
-        doc (str, optional) : Documentation for the distribution.
-        str (str, callable, optional) : Pretty print of the variable.
-        pdf (callable, optional) : Probability density function.
-        ppf (callable, optional) : Point percentile function.
-        mom (callable, optional) : Raw moment generator.
-        ttr (callable, optional) : Three terms recursion coefficient generator
-        val (callable, optional) : Value function for transferable
-                distributions.
-        dep (callable, optional) : Dependency structure.
-        advance (bool) : If True, advance mode is used. See dist.graph for
-                details.
-        length (int) : If constructing an multivariate random variable, this
-                sets the assumed length. Defaults to 1.
-        init (callable, optional) : Custom constructor method.
-
-    Returns:
-        dist (Dist) : New custom distribution.
-    """
-    if not (parent is None):
-        if hasattr(parent, "_cdf"):
-            cdf = cdf or parent._cdf
-        if hasattr(parent, "_bnd"):
-            bnd = bnd or parent._bnd
-        if hasattr(parent, "_pdf"):
-            pdf = pdf or parent._pdf
-        if hasattr(parent, "_ppf"):
-            ppf = ppf or parent._ppf
-        if hasattr(parent, "_mom"):
-            mom = mom or parent._mom
-        if hasattr(parent, "_ttr"):
-            ttr = ttr or parent._ttr
-        if hasattr(parent, "_str"):
-            str = str or parent._str
-        if hasattr(parent, "_dep"):
-            dep = dep or parent._dep
-        val = val or parent._val
-        doc = doc or parent.__doc__
-
-    def crash_func(*a, **kw):
-        raise NotImplementedError
-    if advance:
-        ppf = ppf or crash_func
-        pdf = pdf or crash_func
-        mom = mom or crash_func
-        ttr = ttr or crash_func
-
-    def custom(**kws):
-
-        if not (defaults is None):
-            keys = defaults.keys()
-            assert all([key in keys for key in kws.keys()])
-            prm = defaults.copy()
-        else:
-            prm = {}
-        prm.update(kws)
-        _length = prm.pop("_length", length)
-        _advance = prm.pop("_advance", advance)
-
-        dist = Dist(_advance=_advance, _length=_length, **prm)
-
-        dist.addattr(cdf=cdf)
-        dist.addattr(bnd=bnd)
-
-        if not (pdf is None):
-            dist.addattr(pdf=pdf)
-        if not (ppf is None):
-            dist.addattr(ppf=ppf)
-        if not (mom is None):
-            dist.addattr(mom=mom)
-        if not (ttr is None):
-            dist.addattr(ttr=ttr)
-        if not (val is None):
-            dist.addattr(val=val)
-        if not (str is None):
-            dist.addattr(str=str)
-        if not (dep is None):
-            dist.addattr(dep=dep)
-
-        return dist
-
-    if not (doc is None):
-        doc = """
-Custom random variable
-        """
-    setattr(custom, "__doc__", doc)
-
-    return custom
