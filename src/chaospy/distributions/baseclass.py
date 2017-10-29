@@ -110,7 +110,7 @@ class Dist(object):
         self.graph = graph.Graph(self)
         self.dependencies = self.graph.run(self.length, "dep")[0]
 
-    def range(self, x=None, retall=False, verbose=False):
+    def range(self, x=None, retall=False):
         """
         Generate the upper and lower bounds of a distribution.
 
@@ -126,19 +126,16 @@ class Dist(object):
         """
         dim = len(self)
         if x is None:
-            from . import approx
-            x = approx.find_interior_point(self)
+            from . import approximations
+            x = approximations.find_interior_point(self)
         else:
             x = np.array(x)
         shape = x.shape
         size = int(x.size/dim)
         x = x.reshape(dim, size)
 
-        out, graph = self.graph.run(x, "range")
+        out = self.graph.run(x, "range")
         out = out.reshape((2,)+shape)
-
-        if verbose>1:
-            print(graph)
 
         if retall:
             return out, graph
@@ -189,7 +186,7 @@ independent variables""")
         return out
 
 
-    def inv(self, q, maxiter=100, tol=1e-5, verbose=False, **kws):
+    def inv(self, q, maxiter=100, tol=1e-5, **kws):
         """
         Inverse Rosenblatt transformation.
 
@@ -208,7 +205,7 @@ independent variables""")
         from . import rosenblatt
         return rosenblatt.inv(self, q, maxiter, tol, **kws)
 
-    def pdf(self, x, step=1e-7, verbose=0):
+    def pdf(self, x, step=1e-7):
         """
         Probability density function.
 
@@ -230,34 +227,27 @@ independent variables""")
         x = x.reshape(dim, size)
         out = np.zeros((dim, size))
 
-        (lo, up), graph = self.graph.run(x, "range")
+        lo, up = self.graph.run(x, "range")
         valids = np.prod((x.T >= lo.T)*(x.T <= up.T), 1, dtype=bool)
         x[:, ~valids] = (.5*(up+lo))[:, ~valids]
         out = np.zeros((dim,size))
 
         try:
-            tmp,graph = self.graph.run(x, "pdf",
-                    eps=step)
-            out[:,valids] = tmp[:,valids]
-        except NotImplementedError:
-            from . import approx
-            tmp, graph = approx.pdf_full(self, x, step, retall=True)
+            tmp = self.graph.run(x, "pdf", eps=step)
             out[:, valids] = tmp[:, valids]
-            if verbose:
-                print("approx %s.pdf")
+        except NotImplementedError:
+            from . import approximations
+            out[:, valids] = approximations.pdf_full(
+                self, x, step, retall=True)[:, valids]
         except IndexError:
             pass
-
-        if verbose>1:
-            print(self.graph)
 
         out = out.reshape(shape)
         if dim>1:
             out = np.prod(out, 0)
         return out
 
-    def sample(self, size=(), rule="R", antithetic=None,
-            verbose=False, **kws):
+    def sample(self, size=(), rule="R", antithetic=None, **kws):
         """
         Create pseudo-random generated samples.
 
@@ -335,14 +325,14 @@ independent variables""")
         K = K.reshape(dim, size)
 
         try:
-            out, _ = self.graph.run(K, "mom", **kws)
+            out = self.graph.run(K, "mom", **kws)
         except NotImplementedError:
-            from . import approx
-            out = approx.mom(self, K, **kws)
+            from . import approximations
+            out = approximations.mom(self, K, **kws)
 
         return out.reshape(shape)
 
-    def ttr(self, k, acc=10**3, verbose=1):
+    def ttr(self, k, acc=10**3):
         """
         Three terms relation's coefficient generator
 
@@ -363,7 +353,7 @@ independent variables""")
         size = int(k.size/dim)
         k = k.reshape(dim, size)
 
-        out, graph = self.graph.run(k, "ttr")
+        out = self.graph.run(k, "ttr")
         return out.reshape(shape)
 
     def _ttr(self, *args, **kws):
@@ -526,7 +516,7 @@ independent variables""")
         Returns:
             (bool) : True if distribution is dependent.
         """
-        sets, graph = self.graph.run(None, "dep")
+        sets = self.graph.run(None, "dep")
 
         if args:
 

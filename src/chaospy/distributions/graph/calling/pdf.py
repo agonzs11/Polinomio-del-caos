@@ -2,7 +2,6 @@
 """Probability density function."""
 import numpy
 
-from ... import approx
 
 def pdf_call(self, x_data, dist):
     "PDF call backend wrapper"
@@ -18,7 +17,7 @@ def pdf_call(self, x_data, dist):
     prm.update(self.keys.build())
     for key, value in prm.items():
         if not isinstance(value, numpy.ndarray):
-            value_ = self.run(value, "val")[0]
+            value_ = self.run(value, "val")
             if isinstance(value_, numpy.ndarray):
                 prm[key] = value_
                 graph.add_node(value, key=value_)
@@ -29,7 +28,8 @@ def pdf_call(self, x_data, dist):
         else:
             out[:] = dist._pdf(x_data, **prm)
     else:
-        out = approx.pdf(dist, x_data, self, **self.meta)
+        from ... import approximations
+        out = approximations.pdf(dist, x_data, self, **self.meta)
     graph.add_node(dist, val=out)
 
     self.dist = dist_

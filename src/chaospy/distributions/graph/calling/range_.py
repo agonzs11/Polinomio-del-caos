@@ -18,7 +18,7 @@ def range_call(self, x_data, dist):
     prm.update(self.keys.build())
     for key, value in prm.items():
         if not isinstance(value, numpy.ndarray):
-            value_ = self.run(value, "val")[0]
+            value_ = self.run(value, "val")
             if isinstance(value_, numpy.ndarray):
                 prm[key] = value_
                 graph.add_node(value, key=value_)

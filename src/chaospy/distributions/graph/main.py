@@ -60,9 +60,6 @@ def call(self, x_data, mode, **meta):
     else:
         out = self(x_data, self.root)
 
-    # if mode == "ttr":
-    #     out[1] = out[1]**(x_data != 0)
-
     self.size = size
     if mode == "val":
         graph = self.graph
@@ -71,4 +68,4 @@ def call(self, x_data, mode, **meta):
     self._call = stored_call
     self.meta = meta
 
-    return out, graph
+    return out

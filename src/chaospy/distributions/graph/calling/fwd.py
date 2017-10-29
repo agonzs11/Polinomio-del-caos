@@ -17,7 +17,7 @@ def fwd_call(self, x_data, dist):
     for key, value in prm.items():
 
         if not isinstance(value, numpy.ndarray):
-            post_value = self.run(value, "val")[0]
+            post_value = self.run(value, "val")
             if isinstance(post_value, numpy.ndarray):
                 prm[key] = post_value
                 graph.add_node(value, key=post_value)

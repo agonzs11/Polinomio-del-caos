@@ -2,8 +2,6 @@
 """Backend for raw statistical moment generator."""
 import numpy
 
-from ... import approx
-
 
 def mom_call(self, expon, dist):
     "Moment generator call backend wrapper"
@@ -21,7 +19,8 @@ def mom_call(self, expon, dist):
             prm.update(self.keys.build())
             out[:] = dist._mom(expon, **prm)
     else:
-        out = approx.mom(dist, expon, **self.meta)
+        from ... import approximations
+        out = approximations.mom(dist, expon, **self.meta)
     graph.add_node(dist, val=out)
 
     self.dist = dist_

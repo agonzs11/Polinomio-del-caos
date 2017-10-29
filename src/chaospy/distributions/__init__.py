@@ -30,13 +30,12 @@ from .baseclass import Dist
 from .constructor import construct
 
 from . import (
-    graph, sampler, approx, joint, cores,
+    graph, sampler, joint, cores,
     copulas, collection, operators, rosenblatt,
 )
 
 from .graph import *
 from .sampler import *
-from .approx import *
 from .joint import *
 from .cores import *
 from .copulas import *
